@@ -1,15 +1,16 @@
 //! Voice Activity Detection iterator implementation
-//! 
+//!
 //! This module provides the VAD iterator for processing audio streams and detecting speech segments.
 //! It handles both streaming and batch processing of audio data.
 
 use crate::{Result, SileroVAD};
-use ndarray::{ArrayView1, Array2};
-use serde::{Deserialize, Serialize};
 use log::debug;
+use ndarray::{Array2, ArrayView1};
+use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 /// Speech timestamp information
-/// 
+///
 /// Represents a segment of speech detected in the audio stream.
 /// Times are in seconds from the start of the audio.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -21,29 +22,33 @@ pub struct SpeechTimestamps {
 }
 
 /// Iterator for processing audio in chunks
-/// 
+///
 /// This struct provides a convenient interface for processing audio streams
 /// and detecting speech segments. It maintains internal state to handle
 /// streaming audio and can be used for both real-time and batch processing.
-/// 
+///
 /// # Example
-/// 
+///
 /// ```rust
-/// use silero_vad::{SileroVAD, VADIterator};
+/// use silero_vad_rs::{SileroVAD, VADIterator};
 /// use ndarray::Array1;
-/// 
-/// let model = SileroVAD::new("path/to/model.onnx")?;
-/// let mut vad = VADIterator::new(
-///     model,
-///     0.5,  // threshold
-///     16000, // sampling rate
-///     100,   // min silence duration (ms)
-///     30,    // speech pad (ms)
-/// );
-/// 
-/// let audio_chunk = Array1::zeros(512);
-/// if let Some(ts) = vad.process_chunk(&audio_chunk.view())? {
-///     println!("Speech detected from {:.2}s to {:.2}s", ts.start, ts.end);
+/// use std::path::Path;
+///
+/// fn main() -> Result<(), Box<dyn std::error::Error>> {
+///     let model = SileroVAD::new(Path::new("path/to/model.onnx"))?;
+///     let mut vad = VADIterator::new(
+///         model,
+///         0.5,  // threshold
+///         16000, // sampling rate
+///         100,   // min silence duration (ms)
+///         30,    // speech pad (ms)
+///     );
+///
+///     let audio_chunk = Array1::zeros(512);
+///     if let Some(ts) = vad.process_chunk(&audio_chunk.view())? {
+///         println!("Speech detected from {:.2}s to {:.2}s", ts.start, ts.end);
+///     }
+///     Ok(())
 /// }
 /// ```
 pub struct VADIterator {
@@ -59,9 +64,9 @@ pub struct VADIterator {
 
 impl VADIterator {
     /// Create a new VAD iterator
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `model` - The Silero VAD model to use
     /// * `threshold` - Speech detection threshold (0.0 to 1.0)
     /// * `sampling_rate` - Audio sampling rate (must be 16kHz)
@@ -87,7 +92,7 @@ impl VADIterator {
     }
 
     /// Reset the iterator state
-    /// 
+    ///
     /// This should be called when processing a new audio stream or when
     /// you want to clear the internal state.
     pub fn reset(&mut self) {
@@ -98,17 +103,17 @@ impl VADIterator {
     }
 
     /// Process a single audio chunk and return speech timestamps if detected
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `x` - Audio chunk to process (must be 512 samples for 16kHz)
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// `Ok(Some(timestamps))` if speech is detected, `Ok(None)` otherwise
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if:
     /// * The input chunk size is invalid
     /// * Model inference fails
@@ -142,21 +147,21 @@ impl VADIterator {
     }
 
     /// Get speech timestamps for an entire audio file
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `audio` - Complete audio file to process
     /// * `min_speech_duration_ms` - Minimum duration of speech segments
     /// * `max_speech_duration_s` - Maximum duration of speech segments
     /// * `min_silence_duration_ms` - Minimum silence duration between segments
     /// * `speech_pad_ms` - Padding to add to speech segments
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// Vector of speech timestamps for all detected segments
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if:
     /// * The audio data is invalid
     /// * Model inference fails
@@ -169,8 +174,12 @@ impl VADIterator {
         _speech_pad_ms: u32,
     ) -> Result<Vec<SpeechTimestamps>> {
         let mut timestamps = Vec::new();
-        let chunk_size = if self.sampling_rate == 16000 { 512 } else { 256 };
-        
+        let chunk_size = if self.sampling_rate == 16000 {
+            512
+        } else {
+            256
+        };
+
         // Process audio chunks one at a time
         let mut i = 0;
         while i < audio.len() {
@@ -180,7 +189,7 @@ impl VADIterator {
             }
 
             debug!("Processing chunk at position {}", i);
-            
+
             // Process the chunk
             let window = audio.slice(ndarray::s![i..end]);
             if let Some(ts) = self.process_chunk(&window)? {
@@ -198,17 +207,17 @@ impl VADIterator {
     }
 
     /// Process a batch of audio chunks and return speech timestamps if detected
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `x` - Batch of audio chunks to process (each chunk must be 512 samples for 16kHz)
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// `Ok(Some(timestamps))` if speech is detected, `Ok(None)` otherwise
-    /// 
+    ///
     /// # Errors
-    /// 
+    ///
     /// Returns an error if:
     /// * The input chunk size is invalid
     /// * Model inference fails
@@ -241,6 +250,10 @@ impl VADIterator {
             self.last_prob = prob;
         }
 
-        Ok(if results.is_empty() { None } else { Some(results) })
+        Ok(if results.is_empty() {
+            None
+        } else {
+            Some(results)
+        })
     }
-} 
+}

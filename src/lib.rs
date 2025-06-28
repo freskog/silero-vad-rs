@@ -1,10 +1,10 @@
 //! Silero Voice Activity Detection (VAD) - Rust Implementation
-//! 
+//!
 //! This crate provides a Rust implementation of the [Silero Voice Activity Detection (VAD) model](https://github.com/snakers4/silero-vad).
 //! It uses the `ort` crate for efficient ONNX model inference and provides both streaming and batch processing capabilities.
-//! 
+//!
 //! # Features
-//! 
+//!
 //! - Voice Activity Detection using the Silero model
 //! - Support for both 8kHz and 16kHz audio
 //! - Streaming VAD with iterator interface and state management
@@ -14,16 +14,17 @@
 //! - Automatic model downloading from Silero repository
 //! - Multiple language support (English, Russian, German, Spanish)
 //! - Comprehensive error handling
-//! 
+//!
 //! # Example
-//! 
+//!
 //! ```rust
-//! use silero_vad::{SileroVAD, VADIterator};
-//! use silero_vad::utils::{read_audio, save_audio};
-//! 
+//! use silero_vad_rs::{SileroVAD, VADIterator};
+//! use ndarray::Array1;
+//! use std::path::Path;
+//!
 //! fn main() -> Result<(), Box<dyn std::error::Error>> {
 //!     // Load the model
-//!     let model = SileroVAD::new("path/to/silero_vad.onnx")?;
+//!     let model = SileroVAD::new(Path::new("path/to/silero_vad.onnx"))?;
 //!     
 //!     // Create a VAD iterator
 //!     let mut vad = VADIterator::new(
@@ -33,24 +34,15 @@
 //!         100,   // min silence duration (ms)
 //!         30,    // speech pad (ms)
 //!     );
-//! 
-//!     // Read audio file
-//!     let audio = read_audio("input.wav", 16000)?;
+//!
+//!     // Example audio chunk (in practice, you'd read this from a file)
+//!     let audio_chunk = Array1::zeros(512);
 //!     
-//!     // Get speech timestamps
-//!     let timestamps = vad.get_speech_timestamps(
-//!         &audio.view(),
-//!         250,    // min speech duration (ms)
-//!         f32::INFINITY, // max speech duration (s)
-//!         100,    // min silence duration (ms)
-//!         30,     // speech pad (ms)
-//!     )?;
-//! 
-//!     // Process timestamps
-//!     for ts in timestamps {
+//!     // Process the chunk
+//!     if let Some(ts) = vad.process_chunk(&audio_chunk.view())? {
 //!         println!("Speech detected from {:.2}s to {:.2}s", ts.start, ts.end);
 //!     }
-//! 
+//!
 //!     Ok(())
 //! }
 //! ```
@@ -60,7 +52,7 @@ pub mod utils;
 pub mod vad;
 
 pub use model::SileroVAD;
-pub use vad::{VADIterator, SpeechTimestamps};
+pub use vad::{SpeechTimestamps, VADIterator};
 
 /// Supported languages for VAD
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -96,4 +88,4 @@ pub enum Error {
 }
 
 /// Result type for the Silero VAD library
-pub type Result<T> = std::result::Result<T, Error>; 
+pub type Result<T> = std::result::Result<T, Error>;
